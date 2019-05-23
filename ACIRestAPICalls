@@ -1,0 +1,344 @@
+
+https://github.com/datacenter/acitoolkit
+
+
+***********
+POSTMAN 
+***********
+https://{{hostName}}/api/mo/aaaLogin.xml
+
+<aaaUser name={{userName}} pwd={{passWord}}/>
+
+
+
+*****************
+BRIDGE  DOMAINS 
+*****************
+
+*****************
+REST  APIs
+*****************
+REST API to view list IP subnets in an Bridge domain
+
+
+If you are looking for all subnets configured under the bridge domain EXAMPLE in tenant ACME:
+
+ 
+
+GET https://APIC/api/class/fvSubnet.json?query-target-filter=wcard(fvSubnet.dn,"tn-ACME/BD-EXAMPLE")
+
+or
+
+GET https://APIC/api/mo/uni/tn-ACME/BD-EXAMPLE.json?rsp-subtree=full&rsp-subtree-class=fvSubnet
+
+
+*****************
+TENANTS
+*****************
+
+VRFs
+*****************
+
+*****************
+EPGs
+*****************
+
+*****************
+VMM 
+*****************
+
+*****************
+AAEP
+*****************
+
+*****************
+AEP
+*****************
+
+*****************
+OOB MGMT
+*****************
+Out of Band mgt requires some additional config
+
+
+Go in the tenant mgmt and ensure you have the following:
+
+- An Out-of-Band Contract, with a Filter into it (common/default to be permissive).
+
+- A Node Management EPG, with Provided OoB Contract being the one you created before.
+
+- An External Mgt Instance Profile, with Consumed OoB Contract being also the one you created, and Subnet 0.0.0.0/0.
+
+- Ensure you defined your Leaf mgt IP into Node Mgt Addresses > Static Node Mgt Addresses, set with the Node Mgt EPG you created before.
+
+
+*****************
+L3  OUT
+*****************
+I documented if for you completely here: https://community.cisco.com/t5/data-center-blogs/aci-transit-routing-in-a-single-vrf/ba-p/3779940
+
+*****************
+L2  OUT
+*****************
+
+*****************
+BRIDGE  DOMAINS 
+*****************
+
+*****************
+L4 - L7  SERVICES
+*****************
+
+*****************
+BRIDGE  DOMAINS 
+*****************
+
+********************************
+SMTP/CALLHOME MAIL RELAY (JSON)
+********************************
+Example:
+POST https://192.168.1.141/api/node/mo/uni/fabric/chgroup-fab-callhome-destGrp.json
+
+{
+  "callhomeGroup": {
+    "attributes": {
+      "name": "fab-­callhome-­destGrp",
+      "descr": "ACI Bootcamp Lab for CALLHOME"
+    },
+    "children": [
+      {
+        "callhomeDest": {
+          "attributes": {
+            "name": "ACI-­P1-­ Server",
+            "urgency": "info",
+            "email": "aci-­bc-­p1@cisco.com"
+          },
+          "children": []
+        }
+      },
+      {
+        "callhomeDest": {
+          "attributes": {
+            "name": "ACI-­P3-­ Server",
+            "urgency": "info",
+            "email": "aci-­bc-­p3@cisco.com",
+            "format": "short-­txt"
+          },
+          "children": []
+        }
+      },
+      {
+        "callhomeDest": {
+          "attributes": {
+            "name": "ACI-­P5-­ Server",
+            "urgency": "info",
+            "email": "aci-­bc-­p5@cisco.com",
+            "format": "aml"
+          },
+          "children": []
+        }
+      },
+      {
+        "callhomeProf": {
+          "attributes": {
+            "from": "aci-­p1-­ server@aci.bootcamp.local",
+            "replyTo": "aci-­bc-­p1@cisco.com",
+            "email": "aci-­bc-­ p1@cisco.com",
+            "phone": "+1-­919-­392-­1234",
+            "contact": "Robert Hurst",
+            "addr": "123 ACI Bootcamp, Cisco",
+            "contract": "1234567890",
+            "customer": "12345",
+            "site": "67890"
+          },
+          "children": [
+            {
+              "callhomeSmtpServer": {
+                "attributes": {
+                  "host": "192.169.1.161"
+                },
+                "children": [
+                  {
+                    "file RsARemoteHostToEpg": {
+                      "attributes": {
+                        "tDn": "uni/tn-­mgmt/mgmtp-­default/oob-­ default"
+                      },
+                      "children": []
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
+**************************
+L3 OUT EIGRP ROUTED (XML)
+**************************
+<?xml version="1.0"?>
+
+-<fvTenant name="CUSTOMER_TENANT">
+
+
+-<fvBD name="bd1" vmac="not-applicable" unkMcastAct="flood" unkMacUcastAct="proxy" unicastRoute="yes" type="regular" ownerTag="" ownerKey="" nameAlias="" multiDstPktAct="bd-flood" mcastAllow="no" mac="00:22:BD:F8:19:FF" llAddr="::" limitIpLearnToSubnets="yes" ipLearning="yes" epMoveDetectMode="" epClear="no" descr="" arpFlood="no">
+
+<fvRsBDToNdP tnNdIfPolName=""/>
+
+<fvRsBDToOut tnL3extOutName="L3_EIGRP_ROUTED"/>
+
+<fvRsBdToEpRet tnFvEpRetPolName="" resolveAct="resolve"/>
+
+<fvRsCtx tnFvCtxName="coast_vrf"/>
+
+<fvRsIgmpsn tnIgmpSnoopPolName=""/>
+
+<fvSubnet name="" nameAlias="" descr="" virtual="no" scope="public" preferred="no" ip="100.1.1.1/24" ctrl=""/>
+
+</fvBD>
+
+
+-<l3extOut name="L3_EIGRP_ROUTED" ownerTag="" ownerKey="" nameAlias="" descr="" targetDscp="unspecified" enforceRtctrl="export">
+
+<eigrpExtP nameAlias="" descr="" asn="50"/>
+
+
+-<l3extInstP name="L3_EPG_EIGRP" nameAlias="" descr="" targetDscp="unspecified" prio="unspecified" prefGrMemb="exclude" matchT="AtleastOne">
+
+<fvRsCustQosPol tnQosCustomPolName=""/>
+
+<l3extSubnet name="" nameAlias="" descr="" scope="import-security" ip="0.0.0.0/0" aggregate=""/>
+
+<fvRsProv prio="unspecified" matchT="AtleastOne" tnVzBrCPName="L3out_PermitAny"/>
+
+</l3extInstP>
+
+
+-<l3extLNodeP name="Leaf201_NodeProf" ownerTag="" ownerKey="" nameAlias="" descr="" targetDscp="unspecified" tag="yellow-green" configIssues="">
+
+
+-<l3extLIfP name="Leaf201_IfProf" ownerTag="" ownerKey="" nameAlias="" descr="" tag="yellow-green">
+
+
+-<eigrpIfP name="" nameAlias="" descr="">
+
+<eigrpRsIfPol tnEigrpIfPolName="EigrpIntPolicy"/>
+
+</eigrpIfP>
+
+<l3extRsEgressQosDppPol tnQosDppPolName=""/>
+
+<l3extRsIngressQosDppPol tnQosDppPolName=""/>
+
+<l3extRsNdIfPol tnNdIfPolName=""/>
+
+<l3extRsPathL3OutAtt mac="00:22:BD:F8:19:FF" llAddr="::" descr="" targetDscp="unspecified" tDn="topology/pod-1/paths-201/pathep-[eth1/3]" mtu="inherit" mode="regular" ifInstT="l3-port" encapScope="local" encap="unknown" addr="192.168.201.1/30"/>
+
+</l3extLIfP>
+
+
+-<l3extRsNodeL3OutAtt tDn="topology/pod-1/node-201" rtrIdLoopBack="yes" rtrId="201.1.1.1">
+
+<l3extInfraNodeP name="" nameAlias="" descr="" fabricExtCtrlPeering="no"/>
+
+</l3extRsNodeL3OutAtt>
+
+</l3extLNodeP>
+
+
+-<l3extLNodeP name="Leaf202_NodeProf" ownerTag="" ownerKey="" nameAlias="" descr="" targetDscp="unspecified" tag="yellow-green" configIssues="">
+
+
+-<l3extLIfP name="Leaf202_IfProf" ownerTag="" ownerKey="" nameAlias="" descr="" tag="yellow-green">
+
+
+-<eigrpIfP name="" nameAlias="" descr="">
+
+<eigrpRsIfPol tnEigrpIfPolName="EigrpIntPolicy"/>
+
+</eigrpIfP>
+
+<l3extRsEgressQosDppPol tnQosDppPolName=""/>
+
+<l3extRsIngressQosDppPol tnQosDppPolName=""/>
+
+<l3extRsNdIfPol tnNdIfPolName=""/>
+
+<l3extRsPathL3OutAtt mac="00:22:BD:F8:19:FF" llAddr="::" descr="" targetDscp="unspecified" tDn="topology/pod-1/paths-202/pathep-[eth1/3]" mtu="inherit" mode="regular" ifInstT="l3-port" encapScope="local" encap="unknown" addr="192.168.202.1/30"/>
+
+</l3extLIfP>
+
+
+-<l3extRsNodeL3OutAtt tDn="topology/pod-1/node-202" rtrIdLoopBack="yes" rtrId="202.1.1.1">
+
+<l3extInfraNodeP name="" nameAlias="" descr="" fabricExtCtrlPeering="no"/>
+
+</l3extRsNodeL3OutAtt>
+
+</l3extLNodeP>
+
+<l3extRsEctx tnFvCtxName="coast_vrf"/>
+
+<l3extRsL3DomAtt tDn="uni/l3dom-COAST_L3ExtDom"/>
+
+</l3extOut>
+
+</fvTenant>
+
+*****************
+POSTMAN RUNNER
+*****************
+https://www.unofficialaciguide.com/2015/05/30/aci-using-postman-to-quickly-configure-interface-policies/
+Using Postman Runner to deploy from a CSV file.
+In this example we will configure 5 new Bridge Domains in a tenant. 
+
+Tenant = KM
+VRF = vrfKM-1
+New BD’s to be configured = BD1, BD2, BD3, BD4, and BD5
+
+Currently the tenant KM looks like below figure. We have a tenant ‘KM’, an VRF ‘vrfKM-1’ and no BDs configured.
+Next we will create a CSV file that must be saved in UNIX format.
+
+‘bridge’ and ‘ip-addr’ = Postman variables (explained below)
+BD1,BD2, …,BD5 = are BD names to be created
+10.1.1.1/24 = SVI for BD1
+10.2.2.1/24 = SVI for BD2 and so on
+The variables ‘bridge’ and ‘ip-addr’ are user defined and we will use these variables in Postman Runner to insert more specific values when the script is run. For first iteration ‘bridge’ will be replaced with BD1 and then in the second iteration it will be replaced with BD2. Similarly, ‘ip-addr’ will be replaced with 10.1.1.1/24 and 10.2.2.1/24 in the first and second iteration and so on.
+
+Make sure to save the file with extension .csv
+Also make sure that it is saved in UNIX format
+ 
+Now that the CSV file is created, we can move on to look at Postman configuration. Please look at the figure below which details some aspects of Postman.
+ 
+Step 1 To login to the APIC. ( use the above link if you need to refresh how to login into APIC using Postman)
+Step 2 To add the REST API for the script. In our example we will use the below script to create new BDs.
+
+<polUni>
+  <fvTenant name="KM" >
+    <fvBD name="{{bridge}}">
+      <fvRsCtx tnFvCtxName="vrfKM-1"/>
+      <fvSubnet ip="{{ip-addr}}"/>
+    </fvBD>
+  </fvTenant>
+</polUni>
+
+Collections – this is where you define the collection of your REST APIs to use.
+Testing Runner – In our case we have defined the a collection named ‘Testing Runner’.
+POST CreateBD copy – this is the REST API that is defined in our ‘Testing Runner’ collection. This simply defines 5 BDs with their SVIs as listed above.
+SJ LAB – This is the environment that I created to store my username/passwords and APIC IPs. You can create your own environment or use hard-coded values instead.
+
+Next we will select the ‘Testing Runner’ collection to run the script to create 5 BDs.
+Use the small arrow to open the ‘Testing Runner’ collection and click the Run button.
+In the new window, you need to fill the following information:
+
+Environment  (choose your environment if you had defined one earlier)
+Iterations  (5 in our case – look at the csv file)
+Select File  (choose the csv file)
+Preview  (after choosing the csv file you can also preview it here)
+
+Then hit the ‘Run Testing Runner’ button to start the script.
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&

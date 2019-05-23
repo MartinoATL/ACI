@@ -1,0 +1,934 @@
+
+*** GITHUB LINKS FOR ACI SCRIPTING ***
+https://github.com/datacenter/aci-examples
+https://github.com/datacenter/ACI/tree/master/configuration-python/lab
+
+
+Go to Comand prompt:
+PATH
+where python
+where pip
+version
+
+1)Open IDLE
+>>># area=length*width
+>>>length0ne=8
+>>>width0ne=3
+>>>area0ne=length0ne*width0ne
+>>>area0ne
+24
+>>>lengthTwo=10
+>>>widthTwo=3
+>>>areaTwo=lengthTwo*widthTwo
+>>>areaTwo
+30
+
+>>>def computeArea(length, width):
+area=length*width
+print(area)
+
+>>>computeArea(length0ne, width0ne)
+24
+
+>>>def computeArea(length, width):
+area=length*width
+return area
+
+>>>area0ne=computeArea(length0ne,width0ne)
+>>>area0ne24>>>areaTwo=computeArea(lengthTwo,widthTwo)
+>>>areaTwo
+30
+
+
+**************************
+FARIC DISCOVERY (PYTHON)
+**************************    
+from labScript import *
+from apicPython import addFabricNode
+
+
+class Lab1FabricDiscovery(LabScript):
+    """
+    Discover switches and spines
+    """
+    def __init__(self):
+        self.description = 'Discovery all the switches and spines'
+        self.fabric_nodes = []
+        super(Lab1FabricDiscovery, self).__init__()
+
+    def run_yaml_mode(self):
+        super(Lab1FabricDiscovery, self).run_yaml_mode()
+        self.fabric_nodes = self.args['fabric_nodes']
+
+    def wizard_mode_input_args(self):
+        fabric_nodes = add_mos('Add a Fabric Node', addFabricNode.input_key_args)
+        for fabric_node in fabric_nodes:
+            args = {'serial_number': fabric_node['key_args'][0],
+                    'node_id': fabric_node['key_args'][1],
+                    'node_name': fabric_node['key_args'][2]}
+            self.fabric_nodes.append(args)
+
+    def main_function(self):
+        parent_mo = self.check_if_mo_exist('uni/controller/nodeidentpol', description='Fabric Node')
+        for fabricNode in self.fabric_nodes:
+            addFabricNode.add_fabric_node(parent_mo, fabricNode['serial_number'], fabricNode['node_id'], fabricNode['node_name'])
+
+if __name__ == '__main__':
+    mo = Lab1FabricDiscovery()
+	
+
+************************
+TENANT (PYTHON / JSON)
+************************
+&&&&&&&&&&&&&&&& PYTHON &&&&&&&&&&&&&&&&&&
+"""
+It logs in to the APIC and will create the tenant.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_TENANT_NAME = 'test_tenant'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the tenant.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-t', '--tenant', help='The name of tenant',
+                       default=DEFAULT_TENANT_NAME)
+    
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the Tenant
+    tenant = aci.Tenant(args.tenant)
+
+    # Push the tenant to the APIC
+    resp = session.push_to_apic(tenant.get_url(),
+                                tenant.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+&&&&&&&&&&&&&&&&&& JSON &&&&&&&&&&&&&&&&
+#Configure a tenant
+
+POST URL: http://APIC-IP/api/mo/uni.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fvTenant": {
+        "attributes": {
+            "name": "test_tenant"
+        }
+    }
+}
+
+*********************
+EPG (PYTHON / JSON)
+*********************
+&&&&&&&&&&& PYTHON &&&&&&&&&&&&&&
+"""
+It logs in to the APIC and will create EPG in application profile under tenant
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_TENANT_NAME = 'test_tenant'
+DEFAULT_APP_NAME = 'test_app'
+DEFAULT_EPG_NAME = 'test_epg'
+DEFAULT_BD_NAME = 'test_bd'
+DEFAULT_CONTRACT_NAME = 'test_contract'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the tenant.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-t', '--tenant', help='The name of tenant',
+                       default=DEFAULT_TENANT_NAME)
+    creds.add_argument('-a', '--app', help='The name of application profile',
+                       default=DEFAULT_APP_NAME)
+    creds.add_argument('-e', '--epg', help='The name of EPG',
+                       default=DEFAULT_EPG_NAME)
+    creds.add_argument('-b', '--bd', help='The name of bridge domain',
+                       default=DEFAULT_BD_NAME)
+    creds.add_argument('-c', '--contract', help='The name of contract',
+                       default=DEFAULT_CONTRACT_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the Tenant
+    tenant = aci.Tenant(args.tenant)
+
+    # Create the Application Profile
+    app = aci.AppProfile(args.app, tenant)
+
+    # Create the EPG
+    epg = aci.EPG(args.epg, app)
+    
+    # Create the Bridge Domain
+    bd = aci.BridgeDomain(args.bd, tenant)
+    
+    epg.add_bd(bd)
+    
+    # Create Contract
+    contract = aci.Contract(args.contract, tenant)
+    
+    # Provide the contract from 1 EPG and consume from the other
+    epg.provide(contract)
+    epg.consume(contract)
+    
+    # Push the Application Profile EPG to the APIC
+    resp = session.push_to_apic(tenant.get_url(),
+                                tenant.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+
+&&&&&&&&&&&&& JSON &&&&&&&&&&&&&&&&&&
+#Configure a End Point Group in an application profile under specific tenant
+
+#Note : Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fvAp": {
+		"attributes": {
+			"name": "3Tier_App"
+		},
+		"children": [
+            		{
+				"fvAEPg": {
+			    	"attributes": {
+						"name": "app_epg"
+					}
+				}
+			}
+		]
+	}
+}
+
+******************************
+BRIDGE DOMAIN (PYTHON / JSON)
+******************************
+&&&&&&&&&&&&&&& PYTHON &&&&&&&&&&&&
+"""
+It logs in to the APIC and will create the bridge domain under tenant.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_TENANT_NAME = 'test_tenant'
+DEFAULT_BD_NAME = 'test_bd'
+DEFAULT_SUBNET_NAME = 'test_subnet'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the tenant.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-t', '--tenant', help='The name of tenant',
+                       default=DEFAULT_TENANT_NAME)
+    creds.add_argument('-b', '--bd', help='The name of bridge domain',
+                       default=DEFAULT_BD_NAME)
+    creds.add_argument('-s', '--subnet', help='The name of subnet',
+                       default=DEFAULT_SUBNET_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the Tenant
+    tenant = aci.Tenant(args.tenant)
+    
+    # Create the Bridge Domain
+    bd = aci.BridgeDomain(args.bd, tenant)
+    subnet = aci.Subnet(args.subnet, bd)
+    subnet.set_addr('10.10.10.1/24')
+    
+    # Push the Bridge Domain to the APIC
+    resp = session.push_to_apic(tenant.get_url(),
+                                tenant.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+
+&&&&&&&&&&&& JSON &&&&&&&&&&&&&&
+#Configure a Bridge Domain under specific tenant
+
+#Note: Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fvBD": {
+        "attributes": {
+            "name": "test_bd"
+        }
+}
+
+****************
+AEP (JSON)
+****************
+#Configure a Attachable Access Entity Profile
+
+POST URL: http://APIC-IP/api/node/mo/uni/infra.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "infraAttEntityP": {
+        "attributes": {
+            "name": "test_aep"
+        }
+    }
+}
+
+*******************
+INTERFACE PROFILE
+*******************
+
+**************************
+VLAN POOL (PYTHON / JSON)
+**************************
+&&&&&&&& PYTHON &&&&&&&&&&&
+"""
+It logs in to the APIC and will create the vlan pool.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_VLAN_NAME = 'test_vlan'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the vlan pool.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-v', '--vlan', help='The name of vlan pool',
+                       default=DEFAULT_VLAN_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the VLAN pool
+    vlan_pool = aci.NetworkPool(args.vlan, 'vlan', '222', '223', 'dynamic')
+
+    # Push the VLAN pool to the APIC
+    resp = session.push_to_apic(vlan_pool.get_url(),
+                                vlan_pool.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+
+&&&&&&&&&&&&&& JSON &&&&&&&&&&&
+#Configure VLAN Pool with vlan range
+
+POST URL: http://APIC-IP/api/node/mo/uni/infra/vlanns-[test_vlan]-dynamic.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fvnsVlanInstP":{
+        "attributes":{
+            "name":"test_vlan"
+        },
+        "children":[
+            {
+                "fvnsEncapBlk":{
+                    "attributes":{
+                        "from":"vlan-222",
+                        "to":"vlan-223"
+                    }
+                }
+            }
+        ]
+    }
+}
+
+********************
+INTERFACE PROFILES
+********************
+
+***************************
+BGP ROUTE REFLECTOR (JSON)
+***************************
+#Configure a BGP Route-Reflector
+
+POST URL: http://APIC-IP/api/node/mo/uni/fabric/bgpInstP-default/rr.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "bgpRRNodePEp": {
+        "attributes": {
+            "id": "201"
+        }
+    }
+}
+
+
+********************************
+PHYSICAL DOMAIN (PYTHON / JSON)
+********************************
+&&&&&&&&&&&&& PYTHON &&&&&&&&&&&&
+"""
+It logs in to the APIC and will create the physical domain.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_PHY_DOMAIN_NAME = 'test_phy_dmn'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to APIC and will create the physical domain.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-p', '--phy_domain', 
+                       help='The name of physical domain',
+                       default=DEFAULT_PHY_DOMAIN_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the physical Domain
+    phy_dmn = aci.PhysDomain(args.phy_domain)
+
+    # Push the physical domain to the APIC
+    resp = session.push_to_apic(phy_dmn.get_url(),
+                                phy_dmn.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+
+
+&&&&&&&&&&&&&&& JSON &&&&&&&&&&&&
+#Configure Physical domain and Attach VLAN pool to it
+
+POST URL: http://APIC-IP/api/node/mo/uni.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "physDomP": {
+        "attributes": {
+			"name": "test_phy_dmn",
+			"dn": "uni/phys-test_phy_dmn"
+		},
+		"children": [
+			{
+				"infraRsVlanNs": {
+					"attributes": {
+						"tDn": "uni/infra/vlanns-[test_vlan]-dynamic"
+					}
+				}
+			}
+        ]
+    }
+}
+
+*************************
+ROUTED L3 NETWORK (JSON)
+*************************
+#Configure a Routed L3-network under specific tenant
+
+#Note: Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "l3extOut": {
+		"attributes": {
+			"name": "ext_net"
+		}
+	}
+}
+
+****************
+CONTRACT (PYTHON / JSON)
+****************
+&&&&&&&&&&&& PYTHON &&&&&&&&&&&&&
+    
+"""
+It logs in to the APIC and will create the contract under tenant.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_TENANT_NAME = 'test_tenant'
+DEFAULT_CONTRACT_NAME = 'test_contract'
+DEFAULT_CONTRACT_SUB_NAME = 'test_contract_sub'
+DEFAULT_FILTER_NAME = 'test_filter'
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the tenant.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-t', '--tenant', help='The name of tenant',
+                       default=DEFAULT_TENANT_NAME)
+    creds.add_argument('-c', '--contract', help='The name of contract',
+                       default=DEFAULT_CONTRACT_NAME)
+    creds.add_argument('-s', '--contract_sub', help='The name of contract \
+                       subject', default=DEFAULT_CONTRACT_SUB_NAME)
+    creds.add_argument('-f', '--filter', help='The name of filter',
+                       default=DEFAULT_CONTRACT_SUB_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the Tenant
+    tenant = aci.Tenant(args.tenant)
+        
+    # Create Contract
+    contract = aci.Contract(args.contract, tenant)
+    contract_sub = aci.ContractSubject(args.contract_sub, contract)
+    # Create Filter
+    filter = aci.Filter(args.filter, contract_sub)
+    
+    # Push the Contract to the APIC
+    resp = session.push_to_apic(tenant.get_url(),
+                                tenant.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+		&&&&&&&&&& JSON &&&&&&&&&&&
+		#Configure a Contract under specific tenant
+
+#Note : Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "vzBrCP": {
+        "attributes": {
+            "name": "web_con"
+        }
+}
+		
+
+*******************************
+FABRIC POD POLICY GROUP (JSON)
+*******************************
+#Configure a Fabric POD-policy group
+
+POST URL: http://APIC-IP/api/node/mo/uni/fabric/funcprof.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fabricPodPGrp": {
+        "attributes": {
+            "name": "PodPolicy"
+        },
+        "children": [
+            {
+                "fabricRsPodPGrpBGPRRP": {
+                    "attributes": {
+                        "tnBgpInstPolName":"default"
+                    }
+                }
+            }
+        ]
+    }
+}
+
+************************
+FILTER (PYTHON / JSON)
+************************
+&&&&&&&&&&&&& PYTHON &&&&&&&&&&&&&
+"""
+It logs in to the APIC and will create the filter under tenant.
+"""
+import acitoolkit.acitoolkit as aci
+
+# Define static values to pass (edit these if you wish to set differently)
+DEFAULT_TENANT_NAME = 'test_tenant'
+DEFAULT_FILTER_NAME = 'test_filter'
+
+
+def main():
+    """
+    Main create tenant routine
+    :return: None
+    """
+    # Get all the arguments
+    description = 'It logs in to the APIC and will create the tenant.'
+    creds = aci.Credentials('apic', description)
+    creds.add_argument('-t', '--tenant', help='The name of tenant',
+                       default=DEFAULT_TENANT_NAME)
+    creds.add_argument('-f', '--filter', help='The name of contract',
+                       default=DEFAULT_FILTER_NAME)
+    args = creds.get()
+
+    # Login to the APIC
+    session = aci.Session(args.url, args.login, args.password)
+    resp = session.login()
+    if not resp.ok:
+        print('%% Could not login to APIC')
+
+    # Create the Tenant
+    tenant = aci.Tenant(args.tenant)
+        
+    # Create Filter
+    filter = aci.Filter(args.filter, tenant)
+    
+    entry1 = aci.FilterEntry(args.filter,
+                         applyToFrag='no',
+                         arpOpc='unspecified',
+                         dFromPort='3306',
+                         dToPort='3306',
+                         etherT='ip',
+                         prot='tcp',
+                         sFromPort='1',
+                         sToPort='65535',
+                         tcpRules='unspecified',
+                         parent=filter)
+    
+    # Push the Contract to the APIC
+    resp = session.push_to_apic(tenant.get_url(),
+                                tenant.get_json())
+    if not resp.ok:
+        print('%% Error: Could not push configuration to APIC')
+        print(resp.text)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
+&&&&&&&&&&&&&&& JSON &&&&&&&&&&&&&&&&&&&&&&&
+#Configure a Filter under specific tenant
+
+#Note: Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "vzFilter": {
+        "attributes": {
+            "name": "web_filter"
+        },
+        "children": [
+            {
+                "vzEntry": {
+                    "attributes": {
+                        "name": "web_filter",
+                        "etherT": "ip",
+                        "prot": "tcp", 
+                        "dFromPort": "http",
+                        "dToPort": "http",
+                        "sFromPort": "unspecified",
+                        "sToPort": "unspecified"
+                    }
+                }
+            }
+        ]
+    }
+}
+
+
+******************************
+OSPF INTERFACE PROFILE (JSON)
+******************************
+#Configure a OSPF-interface-profile under Node-Profile in Routed L3-network under specific tenant
+
+#Note 1: Replace "TENANT_NAME" with the tenant name in the POST URL
+#Note 2: Replace "EXT_NET_NAME" with the Routed-L3-network name in th POST URL
+#Note 3: Replace "NODE_PROF_NAME" with the Node-Profile name in th POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME/out-EXT_NET_NAME/lnodep-NODE_PROF_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+	"l3extLIfP": {
+		"attributes": {
+            "name":"ospf_int_prof"
+		},
+        "children": [
+            {
+                "l3extRsPathL3OutAtt": {
+                    "attributes": {
+                		"addr": "30.30.30.1/24",
+            			"mtu": "1500",
+            			"tDn":"topology/pod-1/paths-101/pathep-[eth1/1]"
+	            	}
+            	}
+        	}
+        ]
+
+	}
+}
+
+********************
+NODE PROFILE (JSON)
+********************
+#Configure a Node-Profile in Routed L3-network under specific tenant
+
+#Note 1: Replace "TENANT_NAME" with the tenant name in the POST URL
+#Note 2: Replace "EXT_NET_NAME" with the Routed-L3-network name in th POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME/out-EXT_NET_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+	"l3extLNodeP": {
+		"attributes": {
+			"name": "node_Prof"
+		},
+		"children": [
+			{
+		    	"l3extRsNodeL3OutAtt": {
+					"attributes": {
+						"rtrId": "1.0.0.2",
+						"tDn": "topology/pod-1/node-102"
+					}
+				}
+			}
+		]
+	}
+}
+
+*************************************
+NETWORK UNDER SPECIFIC TENANT (JSON)
+*************************************
+#Configure a Network under specific tenant
+
+#Note: Replace "TENANT_NAME" with the tenant name in the POST URL
+
+POST URL: http://APIC-IP/api/mo/uni/tn-TENANT_NAME.json
+Content-Type: application/json
+Cache-Control: no-cache
+POST BODY :
+{
+    "fvCtx": {
+        "attributes": {
+            "name": "test_net"
+        }
+    }
+}
+
+
+
+
+/// CONVERT JSON FILE TOO CSV USING PYTHON SCRIPT ///
+
+Create a new Python file like: json_to_csv.py
+Add this code:
+
+import csv, json, sys
+#if you are not using utf-8 files, remove the next line
+sys.setdefaultencoding("UTF-8") #set the encode to utf8
+#check if you pass the input file and output file
+if sys.argv[1] is not None and sys.argv[2] is not None:
+    fileInput = sys.argv[1]
+    fileOutput = sys.argv[2]
+    inputFile = open(fileInput) #open json file
+    outputFile = open(fileOutput, 'w') #load csv file
+    data = json.load(inputFile) #load json content
+    inputFile.close() #close the input file
+    output = csv.writer(outputFile) #create a csv.write
+    output.writerow(data[0].keys())  # header row
+    for row in data:
+        output.writerow(row.values()) #values row
+		
+After add this, save the file and run at the terminal:
+python json_to_csv.py input.txt output.csv
+
+Feel free to contact me at Twitter @gabrielpires or by e-mail eu at gabrielpires.com.br
+
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+INSTALL SANDBOX
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    
+*** PYTHON INSTALLATION ***
+
+## Environment
+
+Required
+
+* Python 2.7+
+* [setuptools package](https://pypi.python.org/pypi/setuptools)
+
+## Downloading
+
+If you have git installed, clone the repository
+
+    git clone https://github.com/datacenter/acitoolkit.git
+
+## Installing
+
+After downloading, install using setuptools.
+
+    cd acitoolkit
+    python setup.py install
+
+If you plan on modifying the actual toolkit files, you should install the developer environment that will link the package installation to your development directory.
+
+    cd acitoolkit
+    python setup.py develop
+
+
+# ACI Toolkit Samples #
+
+This directory contains sample scripts that use the python library.
+
+### Set up ###
+
+In order to use the examples in this directory, it is important to set the PYTHONPATH variable to include the path to the ACI toolkit or have installed the acitoolkit using setup.py.
+
+### credentials.py ###
+
+Many of the samples in this directory use the file credentials.py to login to the APIC.  Before running, edit the credentials.py with the username, password, and IP address for your environment.
+
+## To execute the sample files
+
+    1.	cd samples
+    2.	vi example.py (Copy the script here)
+    3.	Execute the script. example: python example.py
+	
+&&&&&&&&&&&&&&&&&&&&&&&&
+* JSON/REST INSTALLATION***
+    
+Setup postman Code snippet:
+In order to execute the ACI-REST from postman the login needs to be performed first. The cookie would get generated
+and stored for subsequent execution.
+
+POST-URL : http://APIC-IP/api/aaaLogin.json
+Content-Type: application/json
+POST BODY :
+{
+	"aaaUser" : {
+		"attributes" : {
+			"name" : "APIC_USER",
+			"pwd" : "APIC_PASSWORD"
+		}
+	}
+}
+
+Executing ACI-REST using postman for first time:
+
+1. Copy POST URL, mentioned in 'setup postman' section above, after replacing APIC-IP with IP address of APIC.
+2. Select method as POST
+3. Open raw JSON section.
+4. Copy POST-BODY JSON to raw JSON body section of postman.
+5. Replace APIC_USERNAME with apic user.
+6. Replace APIC_PASSWORD with apic password.
+7. Click send button
+
+Note: If the cookie gets expired you might have to perform the above steps again.
+
+For subsequent REST call:
+
+1. Copy POST URL, after replacing APIC-IP with IP address of APIC.
+2. Select method as POST
+3. Open raw JSON section.
+4. Copy POST-BODY JSON to raw JSON body section of postman.
+5. Click send button	
